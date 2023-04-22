@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>World's Best Attractions Map</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 600px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([40, 140], 3);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+      maxZoom: 18
+    }).addTo(map);
+
+    const apiKey = process.env.OPENTRIP_API_KEY; // 替換為openTripMap API金鑰
+
+    // 使用Fetch API從opentrip map API中獲取世界百大景點的數據
+    // 從數據源獲取所有景點的數據
+    fetch(`https://api.opentripmap.com/0.1/en/places/bbox?lon_min=130&lon_max=150&lat_min=34&lat_max=45&kinds=natural&limit=50&apikey=${apiKey}`)
+      .then(response => response.json())
+      .then(data => {
+        // 遍歷每個景點創建一個標記
+        data.features.forEach(feature => {
+          const params = {
+            xid: feature.properties.xid,
+            name: feature.properties.name,
+            lat: feature.geometry.coordinates[1],
+            lon: feature.geometry.coordinates[0]
+          };
+          const marker = L.marker([params.lat, params.lon]).addTo(map);
+          marker.bindPopup(`<h2>${params.name}</h2><p>Loading information...</p>`);
+          marker.placeId = params.xid; // 將xid存儲在標記對象的placeId屬性中
+          marker.on('click', () => {
+            // 在標記被點擊時，使用標記的placeId屬性向OpenTripMap API發出請求
+            fetch(`https://api.opentripmap.com/0.1/en/places/xid/${marker.placeId}?apikey=${apiKey}`)
+              .then(response => response.json())
+              .then(data => {
+                const placeInfo = data.wikipedia_extracts.text;
+                const imageUrl = data.preview.source;
+                marker.bindPopup(`<h2>${params.name}</h2><p>${placeInfo}</p><img src="${imageUrl}" alt="景點圖片" width="200">`);
+              })
+              .catch(error => {
+                console.error(error);
+                marker.bindPopup(`<h2>${name}</h2><p>Unable to load information.</p>`);
+              });
+          });
+        });
+      })
+      .catch(error => {
+        console.error(error);
+      });
+
+  </script>
+</body>
+</html>
